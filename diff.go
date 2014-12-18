@@ -12,7 +12,6 @@ package deepdiff
 import (
 	"fmt"
 	"reflect"
-	"unsafe"
 )
 
 // During deepValueEqual, must keep track of checks that are
@@ -251,58 +250,10 @@ func interfaceOf(v reflect.Value) interface{} {
 	if !v.IsValid() {
 		return nil
 	}
-	return bypassCanInterface(v).Interface()
-}
 
-type flag uintptr
-
-// copied from reflect/value.go
-const (
-	flagRO flag = 1 << 5
-)
-
-var flagValOffset = func() uintptr {
-	field, ok := reflect.TypeOf(reflect.Value{}).FieldByName("flag")
-	if !ok {
-		panic("reflect.Value has no flag field")
+	if !v.CanInterface() {
+		return nil
 	}
-	return field.Offset
-}()
 
-func flagField(v *reflect.Value) *flag {
-	return (*flag)(unsafe.Pointer(uintptr(unsafe.Pointer(v)) + flagValOffset))
-}
-
-// bypassCanInterface returns a version of v that
-// bypasses the CanInterface check.
-func bypassCanInterface(v reflect.Value) reflect.Value {
-	if !v.IsValid() || v.CanInterface() {
-		return v
-	}
-	*flagField(&v) &^= flagRO
 	return v
-}
-
-// Sanity checks against future reflect package changes
-// to the type or semantics of the Value.flag field.
-func init() {
-	field, ok := reflect.TypeOf(reflect.Value{}).FieldByName("flag")
-	if !ok {
-		panic("reflect.Value has no flag field")
-	}
-	if field.Type.Kind() != reflect.TypeOf(flag(0)).Kind() {
-		panic("reflect.Value flag field has changed kind")
-	}
-	var t struct {
-		a int
-		A int
-	}
-	vA := reflect.ValueOf(t).FieldByName("A")
-	va := reflect.ValueOf(t).FieldByName("a")
-	flagA := *flagField(&vA)
-	flaga := *flagField(&va)
-
-	if flagA&flagRO != 0 || flaga&flagRO == 0 {
-		panic("reflect.Value read-only flag has changed value")
-	}
 }
