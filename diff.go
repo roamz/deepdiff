@@ -255,5 +255,5 @@ func interfaceOf(v reflect.Value) interface{} {
 		return nil
 	}
 
-	return v
+	return v.Interface()
 }
